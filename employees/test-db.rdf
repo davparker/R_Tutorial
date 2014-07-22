@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:doaml="http://ns.balbinus.net/doaml#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/"
+         xmlns:lp="https://launchpad.net/rdf/launchpad#"
+         xmlns:wot="http://xmlns.com/wot/0.1/"
+         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <lp:Product>
+        <lp:specifiedAt rdf:resource="/test-db/+rdf"/>
+        <lp:name>test-db</lp:name>
+        <lp:displayName>Sample database with test suite</lp:displayName>
+        <lp:title>Sample database with test suite</lp:title>
+        <lp:shortDescription>this is a sample database with an integrated test suite, used to test your applications and database servers</lp:shortDescription>
+        <lp:description>See documentation at https://dev.mysql.com/doc/employee/en/index.html</lp:description>
+        <lp:creationDate>2008-07-26 15:54:56 UTC</lp:creationDate>
+        <lp:homepage/>
+        
+        
+        <lp:programmingLanguage>SQL</lp:programmingLanguage>
+        <lp:screenshot>http://datacharmer.blogspot.com/2008/07/dont-guess-test-sample-database-with.html</lp:screenshot>
+        <lp:inProject>
+            <lp:Project>
+                <lp:specifiedAt rdf:resource="/mysql/+rdf"/>
+            </lp:Project>
+        </lp:inProject>
+        <lp:series>
+            <lp:ProductSeries>
+                <lp:specifiedAt
+    rdf:resource="/test-db/employees-db-1/+rdf"/>
+            </lp:ProductSeries>
+        </lp:series>
+        <lp:series>
+            <lp:ProductSeries>
+                <lp:specifiedAt
+    rdf:resource="/test-db/trunk/+rdf"/>
+            </lp:ProductSeries>
+        </lp:series>
+        <lp:owner>
+            <foaf:Agent>
+                <foaf:Account
+    rdf:resource="/~giuseppe-maxia/+rdf"/>
+            </foaf:Agent>
+        </lp:owner>
+        <lp:status>Active</lp:status>
+        
+    </lp:Product>
+</rdf:RDF>
