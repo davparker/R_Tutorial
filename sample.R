@@ -1,3 +1,6 @@
+packrat::init("~/GitHub/R Tutorial")
+packrat::snapshot()
+
 # Sample code
 # misc...
 Digits = c(20, 30, 40, 50, 60)

@@ -1,8 +1,4 @@
-library("devtools")
-# devtools::install_github("RevolutionAnalytics/RRT")
-# incompatible with R ver 3.1x
-install_github("RevolutionAnalytics/RRT")
-library("RRT")
+
 
 # installing/loading the latest installr package:
 # use Rconsole runas administrator
