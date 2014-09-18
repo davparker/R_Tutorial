@@ -1,0 +1,124 @@
+---
+title: "Mapping every IPv4 address"
+author: "David Parker"
+date: "Wednesday, September 17, 2014"
+output: html_document
+---
+
+
+#[Mapping every IPv4 address](http://datadrivensecurity.info/blog/posts/2014/Sep/mapping-ipv4/?utm_content=buffer61543&utm_medium=social&utm_source=twitter.com&utm_campaign=buffer)
+
+Step 2: Get the data  
+
+I already did step 1 by defining our goal and as a question it is, “Where does the geo-location service think all the ipv4 addresses are worldwide?” Step 2 then is getting data to support our research. When I created the original map I used data from a commercial geolocation service. Since most readers won’t have a subscription, we can reference Maxmind and their free geolocation data. Start by downloading the “GeoLite City” database in CSV/zip format (28meg download) and unzip it to get the “GeoLiteCity-Location.csv” file. Since the first line of the CSV is a copyright statement, you have to read it in and skip 1 line. Because this is quite a bit file, you should leverage the data.table command fread()  
+
+###Get the data
+```{r}
+library("data.table")
+# temp <- tempfile()
+# url1 <- 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/GeoLiteCity-latest.zip'
+# download.file(url1, temp, method = "auto", mode = "wb")
+# unzip(temp, exdir = "./data")
+geo <-fread("./data/GeoLiteCity_20140902/GeoLiteCity-Location.csv", sep = ",", header = TRUE, skip = 1) 
+save(geo, file = "geo.Rdata")
+# how many rows?
+geoRows <- nrow(geo)
+print(geoRows)
+
+# unlink(temp)
+```
+
+Right away here, you can see some challenges with IP geolocation. There are around 4.2 billion total IP address, 3.7 billion are routable (half a billion are reserved) and yet the data only has a total of 557,986 unique rows. It’s probably a safe bet to say some of these may be aggregated together.  
+
+You can jump right to a map here and plot the latitude/longitude in that file, but to save processing time, you can remove duplicate points with the unique function. Then load up a world map, and plot the points on it.  
+
+##Plot the IP Addresses  
+```{r}
+geomap1 <- unique(geo, by=c("latitude", "longitude"))
+
+library(maps)
+library(ggplot2)
+
+# load the world
+world_map <- map_data("world")
+# strip off antartica for aesthetics
+world_map <- subset(world_map, region != "Antarctica") # sorry penguins
+# set up the plot with the map data
+gg <- ggplot(world_map)
+# now add a map layer
+gg <- gg + geom_map(dat=world_map, map = world_map, 
+                    aes(map_id=region), fill="white", color="gray70")
+# and the ip geolocation points
+gg <- gg + geom_point(data=geomap1, aes(longitude, latitude),
+                      colour="#AA3333", alpha=1/10, size=0.5)
+# basic theme
+gg <- gg + theme_bw()
+# show the map
+gg
+```
+
+That’s interesting, and if you notice the alpha on the points is set to 1/10th, meaning it will take ten point on top of one another to make the color solid (red in this case). One thing we didn’t do though is account for the density of the IP addresses. Some of those points may have thousands while others may have just a handful and the map doesn’t show that. In order to account for that you have to load up the other file in the zip file, the GeoLiteCity-Blocks file and merge it with the first file loaded.  
+
+
+```{r}
+blocks <- fread("data/GeoLiteCity_20140902/GeoLiteCity-Blocks.csv", header=T, skip=1)
+
+# these columns are read is as character for some reason
+# make them numeric
+blocks <- blocks[, lapply(.SD, as.numeric)]
+fullgeo <- merge(blocks, geo, all=TRUE, by="locId") # "all" is important here
+# trim out the columns we need
+fullgeo <- fullgeo[ ,c(2,3,8,9), with=FALSE]
+# set column names that are easier to type
+setnames(fullgeo, c("begin", "end", "latitude", "longitude"))
+# look at the data
+print(fullgeo)
+
+```
+
+What you are looking at here is four columns, the begining and ending address in an IP block with the latitude and longitude of that block. The IP addresses are stored in long format, which is both easier to work with and smaller for memory/storage of the data. We’ll make use of the long format in a bit, for now we still have more clean up to do. Notice the first line where begin and end are both NA? That either means there were empty values in the CSV or the merge command didn’t have a matching record for that location ID and because you set all to true in the merge command above, it filled in the row with NA’s. The default behavior is to drop any rows that aren’t in both tables, but we overrode that by setting all=TRUE. We could take care of these NA’s but removing the all from the merge command and accept the default of FALSE for all. But this is interesting, because in our first plot we just took all the latitude and longitude and plotted them… how many don’t have corresponding IP address blocks?  
+
+```{r}
+sum(is.na(fullgeo$begin))
+```
+
+But keep going, you’ll want to do two more things with this data: 1) count the number of IP’s in each block and 2) total up the number of IP’s for each location. In order to do that efficiently from both a code and time perspective we’ll leverage dplyr. Let’s clean up the NA’s while we are at it.  
+
+```{r}
+library(dplyr)
+
+# tbl_dt loads a data.table object into dplyr
+# and the %>% is the "pipe" command to send the output
+# to the next command.
+finalgeo <- tbl_dt(fullgeo) %>% 
+  filter(!is.na(begin)) %>%  # remove the NA's.
+  mutate(count = end - begin + 1) %>% # count the # of IPs
+  group_by(latitude, longitude) %>% # aggregate by unique lat and long
+  summarise(ipcount=sum(count)) # add up all counts
+# what do we have?
+print(finalgeo)
+```
+
+
+Notice how we have 105,304 rows? That’s a far cry from the 557,986 rows we had in the original latitude/longitude pairings you mapped.  
+
+##Explore the data  
+
+What does the distribution of the counts look like? Chances are good there is a heavy skew to the data. To create a plot where you can see the distribution, you’ll have to change the axis showing the distribution of addresses per lat/long pair to a logorithmic scale.  
+
+```{r}
+library(scales)
+gg <- ggplot(finalgeo, aes(x=ipcount))
+gg <- gg + geom_density(fill="slateblue")
+gg <- gg + scale_x_log10("Addresses per Block", expand=c(0,0),
+                         breaks = trans_breaks("log10", function(x) 10^x), 
+                         labels = trans_format("log10", math_format(10^.x)))
+gg <- gg + scale_y_continuous("Density", expand=c(0,0))
+gg <- gg + ggtitle("Density of Lat/Long IP Blocks")
+gg <- gg + theme(axis.ticks=element_blank(),
+                 panel.grid=element_blank(),
+                 panel.background=element_rect(color=NA,
+                                               fill=NA))
+print(gg)
+```
+
