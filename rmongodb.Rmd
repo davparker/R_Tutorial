@@ -1,0 +1,24 @@
+---
+title: "rmongodb"
+author: "David Parker"
+date: "Wednesday, September 24, 2014"
+output: html_document
+---
+
+Installing rmongodb
+
+```{r}
+install.packages("devtools")
+library(devtools)
+install_github("rmongodb", "mongosoup")
+```
+
+
+Storing data with rmongodb
+
+```{r}
+library(rmongodb)
+
+
+```
+

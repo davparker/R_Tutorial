@@ -1,0 +1,56 @@
+---
+title: "dplyr-intro"
+author: "David Parker"
+date: "Wednesday, September 24, 2014"
+output: html_document
+---
+
+tutorial from R Bloggers
+
+```{r}
+# library(plyr)
+# detach(package:plyr)
+library(dplyr)
+library(hflights)
+data(hflights)
+head(hflights)
+```
+
+* `tbl_df` creates a local data frame
+* This is a wrapper for data frame, prevents accidental printing
+
+```{r}
+flights <- tbl_df(hflights)
+
+# samply table data frame prnting
+flights
+
+print(flights, n=20)
+data.frame(head(flights))
+# or
+head(hflights)
+```
+
+## verb 1: filter
+
+First, base R approach
+```{r}
+flights[flights$Month == 1 & flights$DayofMonth == 1, ]
+```
+
+Dplyr filter
+
+```{r}
+#comma defaults to &
+filter(flights, Month == 1 & DayofMonth == 1)
+# use | for or
+filter(flights, UniqueCarrier == "AA" | UniqueCarrier == "UA")
+# %in% works as well
+filter(flights, UniqueCarrier %in% c("AA", "UA") )
+
+```
+
+
+
+
+
