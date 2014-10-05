@@ -8,7 +8,7 @@ output: html_document
 Installing rmongodb
 
 ```{r}
-install.packages("devtools")
+# install.packages("devtools")
 library(devtools)
 install_github("rmongodb", "mongosoup")
 ```
