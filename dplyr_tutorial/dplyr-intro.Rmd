@@ -2,15 +2,18 @@
 title: "dplyr-intro"
 author: "David Parker"
 date: "Wednesday, September 24, 2014"
-output: html_document
+output:
+  html_document:
+    keep_md: yes
 ---
 
-tutorial from R Bloggers
+tutorial from [R Bloggers](http://rpubs.com/justmarkham/dplyr-tutorial)
+
 
 ```{r}
 # library(plyr)
 # detach(package:plyr)
-library(dplyr)
+suppressMessages( library(dplyr) )
 library(hflights)
 data(hflights)
 head(hflights)
@@ -31,26 +34,290 @@ data.frame(head(flights))
 head(hflights)
 ```
 
-## verb 1: filter
+## verb 1  
+## filter: Keep matching critera
 
-First, base R approach
 ```{r}
+# First, base R approach
 flights[flights$Month == 1 & flights$DayofMonth == 1, ]
 ```
 
 Dplyr filter
 
 ```{r}
-#comma defaults to &
+# dplyr approach
+# comma defaults to &
 filter(flights, Month == 1 & DayofMonth == 1)
+
 # use | for or
 filter(flights, UniqueCarrier == "AA" | UniqueCarrier == "UA")
+
 # %in% works as well
 filter(flights, UniqueCarrier %in% c("AA", "UA") )
 
 ```
 
+## Verb 2  
+## select: Pck columns by name  
+
+```{r}
+# base R
+flights[, c("DepTime", "ArrTime", "FlightNum")]
+```  
+
+```{r}
+# dplyr
+select(flights, DepTime, ArrTime, FlightNum)
+```  
+
+```{r}
+# use colon ro select range of cols, and use `contains` to match by partial name
+# can use `starts_with`, `ends_with`, and `matches` (regex)
+select(flights, Year:DayofMonth, contains("Taxi"), contains("Delay"))
+```
+
+## "Chaining" or "Pipelining"  
+* Normal method is nesting operations
+* With %>% can write commands in natural order
+
+```{r}
+# nesting method
+# select UniqueCarrier and DeDelay cols and filter for delays > 60 mins
+filter(select(flights, UniqueCarrier, DepDelay), DepDelay > 60)
+```
+
+```{r}
+# chaining method 
+flights %>% 
+    select(UniqueCarrier, DepDelay) %>% 
+    filter(DepDelay > 60)
+```  
+
+```{r}
+# %>% comes from magrittr, used with other commands
+# create 2 vectors and calc Euclidean dist between them
+(x1 <- 1:5); (x2 <- 2:6)
+sqrt(sum( (x1 - x2)^2 ) )
+```
+
+```{r}
+# chaining method
+(x1 - x2)^2 %>% sum() %>% sqrt()
+```
+
+## verb 3
+## arrange: Reorder rows (sort)
+
+```{r}
+# base R: select UniqueCarrier and DepDelay, sort by DepDelay
+flights[order(flights$DepDelay), c("UniqueCarrier", "DepDelay")]
+```
+
+```{r}
+# dplyr approach
+flights %>% 
+    select(UniqueCarrier, DepDelay) %>%
+    arrange(DepDelay)
+```
+
+```{r}
+# use `desc` for descending
+flights %>% 
+    select(UniqueCarrier, DepDelay) %>%
+    arrange(desc(DepDelay) )
+```  
+
+## verb 4
+## mutate: Add new variables (transform)
+* Create new variables from functions of existing
+  
+```{r}
+# base R approach to create  a new variable, Speed
+flights$Speed <- flights$Distance / flights$AirTime*60
+flights[, c("Distance", "AirTime", "Speed")]
+```
+
+```{r}
+# dplyr approach (prints but does not modify flights ldf)
+flights %>%
+    select(Distance, AirTime) %>%
+    mutate(Speed = Distance / AirTime*60)
+```
+
+```{r}
+# to store new variable
+flights2 <- flights %>%
+    select(Distance, AirTime) %>%
+    mutate(Speed = Distance / AirTime*60)
+
+flights <- tbl_df(hflights)
+```  
+
+## verb 5
+## summarise: Reduce variables to values  
+* Primarily useful with data that has been grouped by
+* `group_by` creates the groups to be operated on
+* `summarise` uses the provided aggregation function to summarise each group
+
+```{r}
+# base R approach to calc avg arrival delay to each dest
+head(with(flights, tapply(ArrDelay, Dest, mean, na.rm = TRUE)))
+head(aggregate(ArrDelay ~ Dest, flights, mean))
+```  
+
+```{r}
+# dplyr approach
+flights %>%
+    group_by(Dest) %>%
+    summarise(avg_delay = mean(ArrDelay, na.rm = TRUE))
+# same as
+flights %>%
+    select(ArrDelay, Dest) %>%
+    group_by(Dest) %>%
+    summarise(avg_delay = mean(ArrDelay, na.rm = TRUE))
+```  
+* `summarise_each` allows for performing same summary function to mult cols
+* Note: `mutate_each` is also available
+```{r}
+# for each carrier, cal pct of flights cancelled or diverted
+# Cancelled & Diverted are binary, 0 or 1
+flights %>%
+    group_by(UniqueCarrier) %>%
+    summarise_each(funs(mean), Cancelled, Diverted)
+```
+
+```{r}
+# for each carrier, calc min & max arrival & departure delays
+flights %>%
+    group_by(UniqueCarrier) %>%
+    summarise_each(funs (min(., na.rm=T), max(., na.rm=T) ), matches("Delay"))
+```  
+* Helper function `n()` counts number of rows in a  group
+* Helper function `n_distinct()` counts unique items in vector
+```{r}
+# for each day in year, count tot number of flights, sort in desc order
+flights %>%
+    group_by(Month, DayofMonth) %>%
+    summarise(flight_count = n()) %>%
+    arrange(desc(flight_count))
+```
+
+```{r}
+# rewrite above more simply with `tally()`
+flights %>%
+    group_by(Month, DayofMonth) %>%
+    tally(sort = TRUE)
+```
+* Grouping can be useful without summarising
+```{r}
+# for each dest, show the number of cancelled and notcancelled flights
+flights %>%
+    group_by(Dest) %>%
+    select(Cancelled) %>%
+    table() %>%
+    head()
+```
+
+## Window Functions
+* Aggregation function, like `mean`, takes n inputs and returns 1 value
+* [Window function](http://cran.r-project.org/web/packages/dplyr/vignettes/window-functions.html) returns n values
+```{r}
+# for each carrier, alculate which two days of the year they had their longest departure delays
+#  note: smallest (not largest) value is ranked as 1, so you have to use `desc` to rank by largest value
+flights %>%
+    group_by(UniqueCarrier) %>%
+    select(Month, DayofMonth, DepDelay) %>%
+    filter(min_rank(desc(DepDelay) ) <= 2 ) %>%
+    arrange(UniqueCarrier, desc(DepDelay))
+```   
+
+```{r}
+# rewrite more simply with the `top_n` function
+flights %>%
+    group_by(UniqueCarrier) %>%
+    select(Month, DayofMonth, DepDelay) %>%
+    top_n(2) %>%
+    arrange(UniqueCarrier, desc(DepDelay))
+```  
+
+```{r}
+# for each month, calculate the number of flights and the change from the previous month
+flights %>%
+    group_by(Month) %>%
+    summarise(flight_count = n()) %>%
+    mutate(change = flight_count - lag(flight_count))
+```
+
+```{r}
+# rewrite more simply with the `tally` function
+flights %>%
+    group_by(Month) %>%
+    tally() %>%
+    mutate(change = n - lag(n))
+```
+
+## Other Useful Convenience Function
+
+```{r}
+# randomly sample a fixed number of rows, without replacement
+flights %>% sample_n(5)
+```
+
+```{r}
+# randomly sample a fraction of rows, with replacement
+flights %>% sample_frac(0.25, replace = TRUE)
+```
+
+```{r}
+# base R approach to view the structure of an object
+str(flights)
+```
+
+```{r}
+# dplyr approach, better formatting and adapts for screen width
+glimpse(flights)
+```
+
+## Connecting to Databases
+* dply can connect to a db as if it were loaded into a df
+* Uses the same syntax for db & df
+* Only generates Select stmts (cannot modify data in db)
+* Currently supports SQLite, PostgreSQL/Redshift, MySQL/MariaDB, BigQuery, MonetDB
+* Examples below based upon SQLite db containing hflights data
+    * Instructions are in [database vignette](http://cran.r-project.org/web/packages/dplyr/vignettes/databases.html)
+
+```{r}
+my_db <- src_sqlite("my_db.sqlite3", create = T)
+```
+
+```{r}
+# connect to an SQLite database containing the hflights data
+flights_sqlite <- copy_to(my_db, hflights, temporary = FALSE)
+```
 
 
+```{r}
+# connect to the "hflights" table in that database
+flights_tbl <- tbl(my_db, "hflights")
 
+# example query with our data frame
+flights %>%
+    select(UniqueCarrier, DepDelay) %>%
+    arrange(desc(DepDelay))
+```
+
+```{r}
+# identical query using the database
+flights_tbl %>%
+    select(UniqueCarrier, DepDelay) %>%
+    arrange(desc(DepDelay))
+```
+
+```{r}
+# ask dplyr for the SQL commands
+flights_tbl %>%
+    select(UniqueCarrier, DepDelay) %>%
+    arrange(desc(DepDelay)) %>%
+    explain()
+```
 
