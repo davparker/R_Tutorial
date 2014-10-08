@@ -4,24 +4,212 @@ author: "David Parker"
 date: "Wednesday, September 24, 2014"
 output: html_document
 ---
+##Introduction to the [rmongodb package](http://cran.r-project.org/web/packages/rmongodb/vignettes/rmongodb_introduction.html)
 
-Installing rmongodb
+* Intro to rmongodb vignette, somewhat adapted for my environment.
 
-```{r}
-# install rmongodb
+MongoDB [www.mongodb.org](www.mongodb.org) is a scalable, high-performance, document-oriented NoSQL database. The rmongodb package provides an interface from the statistical software R [www.r-project.org](www.r-project.org) to MongoDB and back using the mongodb-C library.
+
+##Installing and loading the rmongodb package  
+There is a stable CRAN version of rmongodb available: (install rmongodb)  
+```{r, eval=FALSE}
 install.packages("rmongodb")
-library("rmongodb")
-# install.packages("devtools")
+```
+
+You can also install the latest dev release.
+
+```{r, eval=FALSE}
 library(devtools)
 install_github("rmongodb", "mongosoup")
 ```
 
-
-Storing data with rmongodb
+Load the package as you would any other package.
 
 ```{r}
-library(rmongodb)
+library("rmongodb")
+```
+
+##Connecting R to MongoDB
+First, create a connection to a MongoDB instance. If no parameters, it assumes the localhost.
+```{r}
+help("mongo.create")
+mongo <- mongo.create()
+mongo
+mongo.is.connected
+```
+
+##Getting Databases and Collections
+Get all databases of your MongoDB connection:
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    mongo.get.databases(mongo)
+}
+```  
+
+Get all collections in a specific database of the local MongoDB instance. (In this case, "census")  
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    db <- "census"
+    mongo.get.database.collections(mongo, db)
+}
+coll <- "census.zips"
+```
+
+We will use the 'zips' collection in the following examples. The 'zips' collection holds the MongoDB example data set called “Zip Code Data Set” (http://docs.mongodb.org/manual/tutorial/aggregation-zip-code-data-set/). This data set is available as JSON and contains zip code data from the US.
+
+##Getting the size of collections, a sample document and values for a key
+Use `mongo.count` to count the number of documents in a collection.
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    help("mongo.count")
+    mongo.count(mongo, coll)
+}
+```
+
+We can run some queries. The command `mongo.find.one` gets one document from the collection.  
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    mongo.find.one(mongo, coll)
+}
+```
+
+The command `mongo.distinct` provides a list of all values for a given key.
+ 
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    res <- mongo.distinct(mongo, coll, "city")
+}
+```
+
+###Finding some first data  
+Now we can run the first queries on our MongoDB. In this case we ask for one document providing zip code data for the city, "COLORADO CITY". The output of `mongo.find.one` is a BSON object, which cannot be used directly for further analysis in R. Using the command `mongo.bson.to.list`, an R object will be created from the BSON object.
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    cityone <- mongo.find.one(mongo, coll, "{\"city\":\"COLORADO CITY\"}")
+    print(cityone)
+    mongo.bson.to.list(cityone)
+    class(cityone)
+}
+```
+
+##Creating BSON objects  
+Until recently, working with rmonbodb was all about creating BSON objects in R. This was a very difficult and error-prone task. Since rmongodb version 1.2 you can use JSON directly, and the syntax of the rmongodb package is much more similar to the MongoDB shell.
+```{r}
+buf <- mongo.bson.buffer.create()
+mongo.bson.buffer.append(buf, "city", "COLORADO CITY")
+```
+
+```{r}
+query <- mongo.bson.from.buffer(buf)
+query
+```
+
+The same BSON object can be created with one line of code and JSON:
+ 
+```{r}
+mongo.bson.from.JSON("{\"city\":\"COLORADO CITY\"}")
+```
+
+##Finding more data
+For real analyses it is important to get more than one document of data from MongoDB. As an example, we first use the command mongo.distict to get an overview about the population distribution. Then we check for all cities with less than two inhabitants (errors in the data set?).
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    pop <- mongo.distinct(mongo, coll, "pop")
+    hist(pop)
+    boxplot(pop, main = "City Populations")
+    
+    nr <- mongo.count(mongo, coll, "{\"pop\":{\"$lte\":2}}")
+    print(nr)
+    pops <- mongo.find.all(mongo, coll, "{\"pop\":{\"$lte\":2}}")
+    print(dim(pops))
+    head(pop)
+}
+```
+
+##Finding more data with a more complex query
+
+The analysis gets more interesting when creating a more complex query with two arguments. Using the package jsonlite you can check and visualize your JSON syntax first. Afterwards we query MongoDB with this JSON query.
+
+```{r}
+library("jsonlite")
+json <- "{\"pop\":{\"$lte\":2}, \"pop\":{\"$gte\":1}}"
+cat(prettify(json))
+```
+
+```{r}
+validate(json)
+```
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    pops <- mongo.find.all(mongo, coll, json)
+    print(dim(pops))
+    head(pops)
+}
+```
+
+In this case you will get a warning because the construction of the data.frame object is still inefficient and error-prone due to the NoSQL data structure. We are currently working on a solution.  
+
+```{r}
+mongo.cursor.to.data.frame
+```
+
+##Inserting some data into MongoDB
+
+Another interesting point is inserting data into MongoDB.  
+
+```{r}
+a <- mongo.bson.from.JSON("{\"ident\":\"a\", \"name\":\"Markus\", \"age\":33}")
+b <- mongo.bson.from.JSON("{\"ident\":\"b\", \"name\":\"MongoSoup\", \"age\":1}")
+c <- mongo.bson.from.JSON("{\"ident\":\"c\", \"name\":\"UseR\", \"age\":18}")
+
+if (mongo.is.connected(mongo) == TRUE) {
+    icoll <- paste(db, "test", sep = ".")
+    mongo.insert.batch(mongo, icoll, list(a, b, c))
+    
+    dbs <- mongo.get.database.collections(mongo, db)
+    print(dbs)
+    mongo.find.all(mongo, icoll)
+}
+```
+
+##Updating documents and creating indices for efficient queries
+
+You can also update your data in MongoDB from R and add indices for more efficient queries. (Incement age by 3)  
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    mongo.update(mongo, icoll, "{\"ident\":\"b\"}", "{\"$inc\":{\"age\":3}}")
+    
+    res <- mongo.find.all(mongo, icoll)
+    print(res)
+    
+    # Creating an index for field 'ident'
+    mongo.index.create(mongo, icoll, "{\"ident\":1}")
+    # check mongo shell! 
+    #>  db.test.getIndexes()
+}
+```
 
 
+##Dropping/removing collections and databases and closing the connection to MongoDB
+
+Of course there are also commands to drop databases and collections in MongoDB. After you finished all your analyses it's a good idea to destroy the connection to your MongoDB.  
+
+```{r}
+if (mongo.is.connected(mongo) == TRUE) {
+    mongo.drop(mongo, icoll)
+    # mongo.drop.database(mongo, db)
+    res <- mongo.get.database.collections(mongo, db)
+    print(res)
+    
+    # always close yourconnection when finished
+    # mongo.command(mongo, db, getIndexes())
+    mongo.destroy(mongo)
+}
 ```
 
