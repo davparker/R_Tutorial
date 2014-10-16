@@ -1,0 +1,34 @@
+---
+title: "googleVis-samples"
+author: "David Parker"
+date: "Tuesday, October 14, 2014"
+output: html_document
+---
+
+###Installing googleVis  
+
+```{r googleVis_install, eval=FALSE}
+# Install googleVis
+install.packages("googleVis")
+```
+
+---  
+
+###Demo googleVis  
+
+```{r googleVis_demo}
+url <- "http://members.unine.ch/martin.hilpert/mot.zip"
+fn <- paste0(tempfile(), ".zip")
+download.file(url, destfile = fn)
+dat <- read.table(unzip(fn, files = "mot/convdata.txt",
+                        exdir = tempdir()),
+                  header = TRUE)
+head(dat)
+suppressMessages(library("googleVis"))
+plot(gvisMotionChart(dat, idvar = "VERB", timevar = "DECADE", 
+                     xvar = "verbs", yvar = "nouns",
+                     sizevar = "freq", colorvar = "skewedness",
+                     options = list(width = 500, height = 450),
+                     chartid = "Hilpert"))
+```
+

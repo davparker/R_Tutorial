@@ -19,8 +19,8 @@ install.packages("rmongodb")
 You can also install the latest dev release.
 
 ```{r, eval=FALSE}
-library(devtools)
-install_github("rmongodb", "mongosoup")
+# library(devtools)
+# install_github("rmongodb", "mongosoup")
 ```
 
 Load the package as you would any other package.

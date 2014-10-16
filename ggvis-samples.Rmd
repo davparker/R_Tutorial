@@ -1,0 +1,124 @@
+---
+title: "ggvis"
+author: "David Parker"
+date: "Tuesday, October 14, 2014"
+output: html_document
+---
+
+###Installing ggvis  
+
+```{r ggvis_install, eval=FALSE}
+# Install ggvis
+install.packages("ggvis")
+```
+
+##Introducing ggvis 0.4  
+
+```{r chickwts}
+library(ggvis)
+chickwts %>% 
+    ggvis(~feed, ~weight) %>% 
+    layer_boxplots()
+``` 
+
+---  
+
+###Scatterplots  
+Examine the effect of weight on mpg using mtcars data  
+
+```{r carsdf}
+library(dplyr)
+carsdf <- tbl_df(mtcars)
+carsdf
+carsdf %>% ggvis(~wt, ~mpg) %>% layer_points()
+```
+
+Some tweaks  
+
+```{r carsdftweak}
+carsdf %>% ggvis(~wt, ~mpg) %>% 
+    layer_points(size := 25, shape := "diamond", stroke := "red", fill := NA)
+
+```
+
+---  
+
+###Regression lines  
+
+```{r mtcars_regress}
+mtcars %>%
+    ggvis(~wt, ~mpg) %>%
+    layer_smooths() %>%
+    layer_points()
+```  
+
+
+With a linear model, and 95% confidence interval for the model:  
+
+```{r mtcars_lm}
+mtcars %>% 
+  ggvis(~wt, ~mpg) %>%
+  layer_points() %>%
+  layer_model_predictions(model = "lm", se = TRUE)
+
+```
+
+---  
+
+###Scatterplots with grouping  
+Coloring points by variables   
+
+```{r mtcars_scatter}
+mtcars %>%
+    ggvis(~wt, ~mpg) %>%
+    layer_points(fill = ~factor(cyl))
+```  
+
+```
+Coloring points, and adding a smoother for each group. The grouping variable (which is applied before the transform_smooth is calculated) must be specified with group_by():  
+```
+
+```{r mtcars_groupby}
+mtcars %>% 
+  ggvis(~wt, ~mpg, fill = ~factor(cyl)) %>% 
+  layer_points() %>% 
+  group_by(cyl) %>% 
+  layer_model_predictions(model = "lm")
+``` 
+
+---  
+
+###Bar graphs  
+Using the `pressure` dataset  
+
+```{r pressure}
+head(pressure)
+```  
+
+When the variable onn the X axis is continuous  
+
+```{r pressure_bar}
+pressure %>%
+    ggvis(~temperature, ~pressure) %>%
+    layer_bars()
+```
+
+Specifying the width of the bars:  
+
+```{r pressure_barwidth}
+pressure %>%
+    ggvis(~temperature, ~pressure) %>%
+    layer_bars(width = 15)
+```
+
+
+When the X axis variable is categorical:  
+
+```{r pressure_barfactor}
+pressure2 <- pressure %>% mutate(temperature = factor(temperature))
+head(pressure2)    
+pressure2 %>%
+    ggvis(~temperature, ~pressure) %>%
+    layer_bars(width = 0.5)
+```
+

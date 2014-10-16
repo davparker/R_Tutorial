@@ -8,7 +8,7 @@
 rm(list=ls())
 library(plyr)
 library(maps)
-setwd("~/GitHub/R Tutorial/babyname")
+setwd("~/Documents/GitHub/R_Tutorial/babyname")
 if(!file.exists("./data")){
     dir.create("./data")
     file_url <- data_file <- vector("character",2)
